@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { format, subMonths, addMonths } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { IoChevronBackOutline, IoChevronForwardOutline } from 'react-icons/io5'
 
 interface MonthSelectorProps {
@@ -30,7 +31,7 @@ export default function MonthSelector({ selectedDate, onChange }: MonthSelectorP
       </button>
       
       <h2 className="text-xl font-medium">
-        {format(selectedDate, 'MMMM yyyy')}
+        {format(selectedDate, 'MMMM yyyy', { locale: es })}
       </h2>
       
       <button
