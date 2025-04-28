@@ -6,8 +6,9 @@ import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth, set } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { Transaction } from '@/types/database'
+import AnimatedCounter from '@/components/dashboard/AnimatedCounter'
 import { setLazyProp } from 'next/dist/server/api-utils'
-
+import FinanceSankeyFlow from '@/components/dashboard/FinanceSankeyFlow'
 
 
 export default function Home() {
@@ -17,65 +18,78 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
+  const [categories, setCategories] = useState<{[key: string]: string}>({})
+
 
 
 
   useEffect(() => {
-    async function fetchTransactions() {
+    async function fetchData() {
       setLoading(true)
-
+  
       const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd')
       const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
-
-      // First check if we have any transactions at all
-      const { data: transactions, error: All } = await supabase
-      .from('transactions')
-      .select('*')
-
   
-
-      console.log("Sample of all transactions:", transactions)
-  
-
       // Fetch transactions from Supabase
-      const { data, error } = await supabase
+      const { data: transactionData, error: transactionError } = await supabase
         .from('transactions')
         .select('*')
+        .gte('transaction_date', startDate)
+        .lte('transaction_date', endDate)
         .order('transaction_date', { ascending: false })
-
-        console.log("Selected date range:", startDate, endDate)
-        console.log('Fetched transactions:', data)
-
-        if (error) {
-          console.error('Error fetching transactions:', error)
-          setLoading(false)
-          return
-        }
-
-        setTransactions(data || [])
-
-        let totalIncome = 0
-        let totalExpenses = 0
-
-        data?.forEach((transaction) => {
-          if (transaction.type === 'income') {
-            totalIncome += transaction.amount
-          } else if (transaction.type === 'expense') {
-            totalExpenses += transaction.amount
-          }
-        })
-
-        setTotalIncome(totalIncome)
-        setTotalExpenses(totalExpenses)
+  
+      console.log("Selected date range:", startDate, endDate)
+  
+      if (transactionError) {
+        console.error('Error fetching transactions:', transactionError)
         setLoading(false)
+        return
+      }
+  
+      setTransactions(transactionData || [])
+  
+      let totalIncome = 0
+      let totalExpenses = 0
+  
+      transactionData?.forEach((transaction) => {
+        if (transaction.transaction_type === 'income') {
+          totalIncome += transaction.amount
+        } else if (transaction.transaction_type === 'expense') {
+          totalExpenses += transaction.amount
+        }
+      })
+  
+      setTotalIncome(totalIncome)
+      setTotalExpenses(totalExpenses)
+  
+      // Fetch categories for the Sankey diagram
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .select('id, name')
+      
+      if (categoryError) {
+        console.error('Error fetching categories:', categoryError)
+      } else {
+        // Create a map of category IDs to names
+        const categoryMap = categoryData.reduce((map: {[key: string]: string}, category) => {
+          map[category.id] = category.name
+          return map
+        }, {})
+        
+        setCategories(categoryMap)
+      }
+  
+      setLoading(false)
     }
-    fetchTransactions()
-  }, [selectedDate])
-
+  
+    fetchData()
+  }, [selectedDate]); 
 
   const handleMonthChange = (date: Date) => {
     setSelectedDate(date)
   }
+
+  
 
   return (
     <AppLayout>
@@ -94,31 +108,41 @@ export default function Home() {
 
       <div className="grid grid-cols-3 md:grid-cols-3 gap-2 mb-5">
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-medium mb-4">Gastos</h2>
-          <div className="text-3xl font-bold">
+          <h2 className="text-lg font-medium mb-4 text-gray-600">Gastos</h2>
+          <div className="text-3xl font-bold text-gray-700">
             {loading ? (
-              <div className="animate-pulse bg-gray-200 h-8 w-32 rounded"></div>
-            ) : (
-              `$${totalExpenses.toFixed(2)}`
-            )}  
+                <div className=""></div>
+              ) : (
+                <AnimatedCounter amount={totalExpenses} />
+            )}
           </div>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-medium mb-4">Ingresos</h2>
-          <div className="text-3xl font-bold">$0.00</div>
+          <h2 className="text-lg font-medium mb-4 text-gray-600">Ingresos</h2>
+          <div className="text-3xl font-bold text-gray-700">
+            {loading ? (
+                <div className=""></div>
+              ) : (
+                <AnimatedCounter amount={totalIncome} />
+            )}
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-medium mb-4">Ahorro</h2>
-          <div className="text-3xl font-bold">$0.00</div>
+          <h2 className="text-lg font-medium mb-4 text-gray-600">Ahorro</h2>
+          <div className="text-3xl font-bold text-gray-700">$0.00</div>
         </div>
       </div>
       
-      <div className="bg-white p-6 rounded-lg shadow-sm mb-8">
-        <h2 className="text-lg font-medium mb-4">Tu flujo de dinero</h2>
+      <div className="bg-white p-8 rounded-lg shadow-sm mb-8">
+        <h2 className="text-lg font-medium mb-4 text-gray-600">Tu flujo de dinero</h2>
         <div className="h-64 flex items-center justify-center text-gray-400">
-          <p className="text-center">Aquí irá un gráfico de tu flujo de dinero</p>
+        <FinanceSankeyFlow 
+          transactions={transactions} 
+          categories={categories}
+          loading={loading}
+        />
         </div>
       </div>
     </AppLayout>

@@ -25,8 +25,8 @@ export interface Account {
     transaction_date: string;
     description: string;
     is_recurring: boolean;
-    payment_method: 'cash' | 'credit card' | 'transfer' | 'debit card';
-    transaction_type: 'income' | 'expense';
+    payment_method: string;
+    transaction_type: string;
   }
   
   export interface Budget {
