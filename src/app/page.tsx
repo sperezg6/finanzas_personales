@@ -9,6 +9,8 @@ import { Transaction } from '@/types/database'
 import AnimatedCounter from '@/components/dashboard/AnimatedCounter'
 import { setLazyProp } from 'next/dist/server/api-utils'
 import FinanceSankeyFlow from '@/components/dashboard/FinanceSankeyFlow'
+import RecentTransactions from '@/components/dashboard/RecentTransactions'
+
 
 
 export default function Home() {
@@ -18,6 +20,7 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
+  const [totalSavings, setTotalSavings] = useState(0)
   const [categories, setCategories] = useState<{[key: string]: string}>({})
 
 
@@ -50,6 +53,7 @@ export default function Home() {
   
       let totalIncome = 0
       let totalExpenses = 0
+      let totalSavings = 0
   
       transactionData?.forEach((transaction) => {
         if (transaction.transaction_type === 'income') {
@@ -57,11 +61,15 @@ export default function Home() {
         } else if (transaction.transaction_type === 'expense') {
           totalExpenses += transaction.amount
         }
-      })
-  
+      }) 
+      // Calculate total savings
+
+      totalSavings = totalIncome - totalExpenses
+      
       setTotalIncome(totalIncome)
       setTotalExpenses(totalExpenses)
-  
+      setTotalSavings(totalSavings)
+
       // Fetch categories for the Sankey diagram
       const { data: categoryData, error: categoryError } = await supabase
         .from('categories')
@@ -93,12 +101,12 @@ export default function Home() {
 
   return (
     <AppLayout>
-      <div className="mb-8">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold">👋 Hola, Santiago!</h1>
         <p className="text-gray-600">Aquí tienes un resumen de tus finanzas personales</p>
       </div>
 
-      <div className="grid grid-cols-3 md:grid-cols-3 gap-2 mb-5">
+      <div className="grid grid-cols-3 md:grid-cols-3 gap-2">
         <MonthSelector
           selectedDate={selectedDate}
           onChange={handleMonthChange}
@@ -106,12 +114,12 @@ export default function Home() {
       </div>
 
 
-      <div className="grid grid-cols-3 md:grid-cols-3 gap-2 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5 ">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-lg font-medium mb-4 text-gray-600">Gastos</h2>
           <div className="text-3xl font-bold text-gray-700">
             {loading ? (
-                <div className=""></div>
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <AnimatedCounter amount={totalExpenses} />
             )}
@@ -122,7 +130,7 @@ export default function Home() {
           <h2 className="text-lg font-medium mb-4 text-gray-600">Ingresos</h2>
           <div className="text-3xl font-bold text-gray-700">
             {loading ? (
-                <div className=""></div>
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <AnimatedCounter amount={totalIncome} />
             )}
@@ -131,18 +139,32 @@ export default function Home() {
 
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-lg font-medium mb-4 text-gray-600">Ahorro</h2>
-          <div className="text-3xl font-bold text-gray-700">$0.00</div>
+          <div className="text-3xl font-bold text-gray-700">
+            {loading ? (
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <AnimatedCounter amount={totalSavings} />
+            )}
+          </div>
         </div>
       </div>
       
-      <div className="bg-white p-8 rounded-lg shadow-sm mb-8">
-        <h2 className="text-lg font-medium mb-4 text-gray-600">Tu flujo de dinero</h2>
-        <div className="h-64 flex items-center justify-center text-gray-400">
-        <FinanceSankeyFlow 
-          transactions={transactions} 
-          categories={categories}
-          loading={loading}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Sankey chart takes up 2 columns */}
+        <div className="bg-white p-8 rounded-lg shadow-sm md:col-span-2">
+          <FinanceSankeyFlow 
+            transactions={transactions} 
+            categories={categories}
+            loading={loading}
+          />
+        </div>
+
+        {/* Recent transactions takes up 1 column, same as the Ahorro card above */}
+        <div className="bg-white p-8 rounded-lg shadow-sm">
+          <RecentTransactions 
+            transactions={transactions}
+            loading={loading}
+          />
         </div>
       </div>
     </AppLayout>

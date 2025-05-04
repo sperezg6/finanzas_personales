@@ -1,4 +1,3 @@
-// src/components/dashboard/FinanceSankeyFlow.tsx
 "use client"
 
 import { useEffect, useState } from 'react'
@@ -17,9 +16,20 @@ export default function FinanceSankeyFlow({
   loading 
 }: FinanceSankeyFlowProps) {
   const [sankeyData, setSankeyData] = useState<SankeyData>({ nodes: [], links: [] })
+  const [currentMonth, setCurrentMonth] = useState<string>('')
 
   useEffect(() => {
     if (loading || transactions.length === 0) return
+
+    // Get current month name for the title
+    if (transactions.length > 0) {
+      try {
+        const date = new Date(transactions[0].transaction_date)
+        setCurrentMonth(date.toLocaleString('es-ES', { month: 'long' }))
+      } catch (e) {
+        console.error('Error parsing date:', e)
+      }
+    }
 
     // Create nodes and links for Sankey diagram
     const nodes: SankeyData['nodes'] = []
@@ -28,37 +38,44 @@ export default function FinanceSankeyFlow({
     // Add income node
     nodes.push({
       id: 'income',
-      name: 'Income',
+      name: 'Ingresos',
       category: 'income'
     })
     
-    // Process transactions to get category totals
-    const categoryTotals: {[key: string]: number} = {}
+    // Group transactions by their categories
+    const expensesByCategory: {[key: string]: number} = {}
     
     transactions.forEach(tx => {
       if (tx.transaction_type === 'expense') {
         const categoryId = tx.category_id
-        categoryTotals[categoryId] = (categoryTotals[categoryId] || 0) + tx.amount
+        expensesByCategory[categoryId] = (expensesByCategory[categoryId] || 0) + tx.amount
       }
     })
     
-    // Add category nodes and links from income to each category
-    Object.entries(categoryTotals).forEach(([categoryId, amount]) => {
-      const categoryName = categories[categoryId] || 'Unknown Category'
+    // Sort categories by amount (descending) to maintain visual ordering
+    const sortedCategories = Object.entries(expensesByCategory)
+      .sort((a, b) => b[1] - a[1]) // Sort by amount in descending order
+    
+    // Add expense category nodes and links from income
+    sortedCategories.forEach(([categoryId, amount]) => {
+      const categoryName = categories[categoryId] || 'Otra Categoría'
       
-      // Add category node
-      nodes.push({
-        id: categoryId,
-        name: categoryName,
-        category: 'expense'
-      })
-      
-      // Add link from income to this category
-      links.push({
-        source: 'income',
-        target: categoryId,
-        value: amount
-      })
+      // Only add categories with significant amounts to avoid clutter
+      if (amount > 0) {
+        // Add category node
+        nodes.push({
+          id: categoryId,
+          name: categoryName,
+          category: 'expense'
+        })
+        
+        // Add link from income to this category
+        links.push({
+          source: 'income',
+          target: categoryId,
+          value: amount
+        })
+      }
     })
     
     // Calculate total income
@@ -66,14 +83,16 @@ export default function FinanceSankeyFlow({
       .filter(tx => tx.transaction_type === 'income')
       .reduce((sum, tx) => sum + tx.amount, 0)
     
+    // Calculate total expenses 
+    const totalExpenses = Object.values(expensesByCategory).reduce((sum, amount) => sum + amount, 0)
+    
     // Add "savings" node for remaining income
-    const totalExpenses = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0)
     const savings = totalIncome - totalExpenses
     
     if (savings > 0) {
       nodes.push({
         id: 'savings',
-        name: 'Savings',
+        name: 'Ahorros',
         category: 'savings'
       })
       
@@ -98,17 +117,25 @@ export default function FinanceSankeyFlow({
   if (transactions.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-500">
-        No transaction data available for this period
+        No hay datos de transacciones disponibles para este período
       </div>
     )
   }
 
   return (
-    <SankeyChart 
-      data={sankeyData} 
-      height={400}
-      width={1000}
-      margin={{ top: 20, right: 150, bottom: 20, left: 150 }}
-    />
+    <div className="flex flex-col">
+      <h3 className="text-lg font-medium text-gray-700 mb-4">
+        Tu flujo de dinero en {currentMonth}
+      </h3>
+      <SankeyChart 
+        data={sankeyData} 
+        height={400}
+        width={1000}
+        nodeWidth={30}
+        nodePadding={25}
+        margin={{ top: 20, right: 200, bottom: 20, left: 200 }}
+      />
+
+    </div>
   )
 }
