@@ -13,7 +13,7 @@ interface RecentTransactionsProps {
 
 export default function RecentTransactions({ transactions, loading }: RecentTransactionsProps) {
   // Get only the 3 most recent transactions
-  const recentTransactions = transactions.slice(0, 3)
+  const recentTransactions = transactions.slice(0, 8)
 
   const formatAmount = (amount: number, type: string) => {
     const formattedAmount = new Intl.NumberFormat('es-MX', {
@@ -50,6 +50,10 @@ export default function RecentTransactions({ transactions, loading }: RecentTran
     } else if (description.toLowerCase().includes('renta') || 
               description.toLowerCase().includes('rent')) {
       return '🏠'  // Rent/Housing
+    } else if (description.toLowerCase().includes('transporte') ||
+              description.toLowerCase().includes('uber') ||
+              description.toLowerCase().includes('gasolina')) {
+      return '🚗'  // Transport 
     } else {
       return '💳'  // Default to credit card
     }
